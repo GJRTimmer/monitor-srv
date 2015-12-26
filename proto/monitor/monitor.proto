@@ -15,5 +15,5 @@ message HealthChecksRequest {
 }
 
 message HealthChecksResponse {
-	repeated HealthCheck healthChecks = 1;
+	repeated HealthCheck healthchecks = 1;
 }
