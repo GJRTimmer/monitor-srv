@@ -3,6 +3,7 @@ package monitor
 import (
 	"errors"
 	"sync"
+	"time"
 
 	proto "github.com/micro/go-platform/monitor/proto"
 	"golang.org/x/net/context"
@@ -14,9 +15,10 @@ type monitor struct {
 }
 
 var (
-	ErrNotFound      = errors.New("not found")
 	DefaultMonitor   = newMonitor()
+	ErrNotFound      = errors.New("not found")
 	HealthCheckTopic = "micro.monitor.healthcheck"
+	TickInterval     = time.Duration(time.Minute * 10)
 )
 
 func newMonitor() *monitor {
@@ -25,7 +27,7 @@ func newMonitor() *monitor {
 	}
 }
 
-func (m *monitor) filter(hc []*proto.HealthCheck, status proto.HealthCheck_Status, limit, offset int) []*proto.HealthCheck {
+func filter(hc []*proto.HealthCheck, status proto.HealthCheck_Status, limit, offset int) []*proto.HealthCheck {
 	if len(hc) < offset {
 		return []*proto.HealthCheck{}
 	}
@@ -46,6 +48,32 @@ func (m *monitor) filter(hc []*proto.HealthCheck, status proto.HealthCheck_Statu
 	return hcs
 }
 
+func (m *monitor) reap() {
+	m.Lock()
+	defer m.Unlock()
+
+	t := time.Now().Unix()
+
+	for id, hc := range m.healthChecks {
+		var checks []*proto.HealthCheck
+		for _, check := range hc {
+			if t > (check.Timestamp+check.Interval) && t > (check.Timestamp+check.Ttl) {
+				continue
+			}
+			checks = append(checks, check)
+		}
+		m.healthChecks[id] = checks
+	}
+}
+
+func (m *monitor) run() {
+	t := time.NewTicker(TickInterval)
+
+	for _ = range t.C {
+		m.reap()
+	}
+}
+
 func (m *monitor) HealthChecks(id string, status proto.HealthCheck_Status, limit, offset int) ([]*proto.HealthCheck, error) {
 	m.Lock()
 	defer m.Unlock()
@@ -55,14 +83,14 @@ func (m *monitor) HealthChecks(id string, status proto.HealthCheck_Status, limit
 		for _, hc := range m.healthChecks {
 			hcs = append(hcs, hc...)
 		}
-		return m.filter(hcs, status, limit, offset), nil
+		return filter(hcs, status, limit, offset), nil
 	}
 
 	hcs, ok := m.healthChecks[id]
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return m.filter(hcs, status, limit, offset), nil
+	return filter(hcs, status, limit, offset), nil
 }
 
 func (m *monitor) ProcessHealthCheck(ctx context.Context, hc *proto.HealthCheck) error {
@@ -86,4 +114,8 @@ func (m *monitor) ProcessHealthCheck(ctx context.Context, hc *proto.HealthCheck)
 	hcs = append(hcs, hc)
 	m.healthChecks[hc.Id] = hcs
 	return nil
+}
+
+func (m *monitor) Run() {
+	go m.run()
 }
