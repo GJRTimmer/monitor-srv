@@ -25,15 +25,44 @@ func newMonitor() *monitor {
 	}
 }
 
-func (m *monitor) HealthChecks(id string) ([]*proto.HealthCheck, error) {
+func (m *monitor) filter(hc []*proto.HealthCheck, status proto.HealthCheck_Status, limit, offset int) []*proto.HealthCheck {
+	if len(hc) < offset {
+		return []*proto.HealthCheck{}
+	}
+
+	if (limit + offset) > len(hc) {
+		limit = len(hc) - offset
+	}
+
+	var hcs []*proto.HealthCheck
+	for i := 0; i < limit; i++ {
+		if status == proto.HealthCheck_UNKNOWN {
+			hcs = append(hcs, hc[offset])
+		} else if hc[offset].Status == status {
+			hcs = append(hcs, hc[offset])
+		}
+		offset++
+	}
+	return hcs
+}
+
+func (m *monitor) HealthChecks(id string, status proto.HealthCheck_Status, limit, offset int) ([]*proto.HealthCheck, error) {
 	m.Lock()
 	defer m.Unlock()
+
+	if len(id) == 0 {
+		var hcs []*proto.HealthCheck
+		for _, hc := range m.healthChecks {
+			hcs = append(hcs, hc...)
+		}
+		return m.filter(hcs, status, limit, offset), nil
+	}
 
 	hcs, ok := m.healthChecks[id]
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return hcs, nil
+	return m.filter(hcs, status, limit, offset), nil
 }
 
 func (m *monitor) ProcessHealthCheck(ctx context.Context, hc *proto.HealthCheck) error {

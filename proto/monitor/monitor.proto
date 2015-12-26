@@ -8,6 +8,10 @@ service Monitor {
 
 message HealthChecksRequest {
 	string id = 1;
+	HealthCheck.Status status = 2;
+	uint64 limit = 3;
+	uint64 offset = 4;
+
 }
 
 message HealthChecksResponse {
