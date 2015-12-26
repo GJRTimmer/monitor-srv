@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+import "github.com/micro/go-platform/monitor/proto/monitor.proto";
+
+service Monitor {
+	rpc HealthChecks(HealthChecksRequest) returns (HealthChecksResponse) {}
+}
+
+message HealthChecksRequest {
+	string id = 1;
+}
+
+message HealthChecksResponse {
+	repeated HealthCheck healthChecks = 1;
+}
