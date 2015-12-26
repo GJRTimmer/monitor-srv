@@ -22,6 +22,8 @@ func main() {
 		server.NewSubscriber(monitor.HealthCheckTopic, monitor.DefaultMonitor.ProcessHealthCheck),
 	)
 
+	monitor.DefaultMonitor.Run()
+
 	if err := server.Run(); err != nil {
 		log.Fatal(err)
 	}

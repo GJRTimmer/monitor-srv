@@ -20,6 +20,6 @@ func (m *Monitor) HealthChecks(ctx context.Context, req *proto.HealthChecksReque
 		return errors.InternalServerError("go.micro.srv.monitoring.Monitor.HealthCheck", err.Error())
 	}
 
-	rsp.HealthChecks = hcs
+	rsp.Healthchecks = hcs
 	return nil
 }
