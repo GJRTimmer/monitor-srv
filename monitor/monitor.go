@@ -16,7 +16,7 @@ type monitor struct {
 var (
 	ErrNotFound      = errors.New("not found")
 	DefaultMonitor   = newMonitor()
-	HealthCheckTopic = "go.micro.monitor.healthcheck"
+	HealthCheckTopic = "micro.monitor.healthcheck"
 )
 
 func newMonitor() *monitor {
