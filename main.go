@@ -2,29 +2,31 @@ package main
 
 import (
 	log "github.com/golang/glog"
-	"github.com/micro/go-micro/cmd"
-	"github.com/micro/go-micro/server"
+	"github.com/micro/go-micro"
 	"github.com/micro/monitoring-srv/handler"
 	"github.com/micro/monitoring-srv/monitor"
 	proto "github.com/micro/monitoring-srv/proto/monitor"
 )
 
 func main() {
-	cmd.Init()
-
-	server.Init(
-		server.Name("go.micro.srv.monitoring"),
+	service := micro.NewService(
+		micro.Name("go.micro.srv.monitoring"),
+		// before starting
+		micro.BeforeStart(func() error {
+			monitor.DefaultMonitor.Run()
+			return nil
+		}),
 	)
 
-	proto.RegisterMonitorHandler(server.DefaultServer, new(handler.Monitor))
+	service.Init()
 
-	server.Subscribe(
-		server.NewSubscriber(monitor.HealthCheckTopic, monitor.DefaultMonitor.ProcessHealthCheck),
+	service.Server().Subscribe(
+		service.Server().NewSubscriber(monitor.HealthCheckTopic, monitor.DefaultMonitor.ProcessHealthCheck),
 	)
 
-	monitor.DefaultMonitor.Run()
+	proto.RegisterMonitorHandler(service.Server(), new(handler.Monitor))
 
-	if err := server.Run(); err != nil {
+	if err := service.Run(); err != nil {
 		log.Fatal(err)
 	}
 }
