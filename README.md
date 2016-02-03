@@ -91,5 +91,5 @@ micro query go.micro.srv.monitoring Monitor.HealthChecks '{"id": "go.micro.healt
 
 ### Sending HealthChecks
 
-Healthchecks are sent using [go-platform/monitor](https://github.com/micro/go-platform/blob/monitor/monitor/monitor.go). Example usage can be found in [go-platform/examples/monitor](https://github.com/micro/go-platform/blob/monitor/examples/monitor/monitor.go).
+Healthchecks are sent using [go-platform/monitor](https://github.com/micro/go-platform/blob/master/monitor/monitor.go). Example usage can be found in [go-platform/examples/monitor](https://github.com/micro/go-platform/blob/master/examples/monitor/monitor.go).
 
