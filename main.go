@@ -3,14 +3,14 @@ package main
 import (
 	log "github.com/golang/glog"
 	"github.com/micro/go-micro"
-	"github.com/micro/monitoring-srv/handler"
-	"github.com/micro/monitoring-srv/monitor"
-	proto "github.com/micro/monitoring-srv/proto/monitor"
+	"github.com/micro/monitor-srv/handler"
+	"github.com/micro/monitor-srv/monitor"
+	proto "github.com/micro/monitor-srv/proto/monitor"
 )
 
 func main() {
 	service := micro.NewService(
-		micro.Name("go.micro.srv.monitoring"),
+		micro.Name("go.micro.srv.monitor"),
 		// before starting
 		micro.BeforeStart(func() error {
 			monitor.DefaultMonitor.Run()

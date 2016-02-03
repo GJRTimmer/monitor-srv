@@ -2,8 +2,8 @@ package handler
 
 import (
 	"github.com/micro/go-micro/errors"
-	"github.com/micro/monitoring-srv/monitor"
-	proto "github.com/micro/monitoring-srv/proto/monitor"
+	"github.com/micro/monitor-srv/monitor"
+	proto "github.com/micro/monitor-srv/proto/monitor"
 	"golang.org/x/net/context"
 )
 
@@ -15,9 +15,9 @@ func (m *Monitor) HealthChecks(ctx context.Context, req *proto.HealthChecksReque
 	}
 	hcs, err := monitor.DefaultMonitor.HealthChecks(req.Id, req.Status, int(req.Limit), int(req.Offset))
 	if err != nil && err == monitor.ErrNotFound {
-		return errors.NotFound("go.micro.srv.monitoring.Monitor.HealthCheck", err.Error())
+		return errors.NotFound("go.micro.srv.monitor.Monitor.HealthCheck", err.Error())
 	} else if err != nil {
-		return errors.InternalServerError("go.micro.srv.monitoring.Monitor.HealthCheck", err.Error())
+		return errors.InternalServerError("go.micro.srv.monitor.Monitor.HealthCheck", err.Error())
 	}
 
 	rsp.Healthchecks = hcs

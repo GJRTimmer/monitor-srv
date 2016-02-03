@@ -24,14 +24,14 @@ Who monitors the monitoring service? The monitoring service
 3. Download and start the service
 
 	```shell
-	go get github.com/micro/monitoring-srv
-	monitoring-srv
+	go get github.com/micro/monitor-srv
+	monitor-srv
 	```
 
 	OR as a docker container
 
 	```shell
-	docker run microhq/monitoring-srv --registry_address=YOUR_REGISTRY_ADDRESS
+	docker run microhq/monitor-srv --registry_address=YOUR_REGISTRY_ADDRESS
 	```
 
 ## The API
@@ -39,7 +39,7 @@ Monitoring server implements the following RPC Methods
 
 ### Monitor.HealthChecks
 ```shell
-micro query go.micro.srv.monitoring Monitor.HealthChecks '{"id": "go.micro.healthcheck.ping"}'
+micro query go.micro.srv.monitor Monitor.HealthChecks '{"id": "go.micro.healthcheck.ping"}'
 {
 	"healthChecks": [
 		{
@@ -63,7 +63,7 @@ micro query go.micro.srv.monitoring Monitor.HealthChecks '{"id": "go.micro.healt
 	]
 }
 
-micro query go.micro.srv.monitoring Monitor.HealthChecks '{"id": "go.micro.healthcheck.pong"}'
+micro query go.micro.srv.monitor Monitor.HealthChecks '{"id": "go.micro.healthcheck.pong"}'
 {
 	"healthChecks": [
 		{
