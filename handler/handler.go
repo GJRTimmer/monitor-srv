@@ -23,3 +23,12 @@ func (m *Monitor) HealthChecks(ctx context.Context, req *proto.HealthChecksReque
 	rsp.Healthchecks = hcs
 	return nil
 }
+
+func (m *Monitor) Services(ctx context.Context, req *proto.ServicesRequest, rsp *proto.ServicesResponse) error {
+	services, err := monitor.DefaultMonitor.Services(req.Service)
+	if err != nil {
+		return errors.InternalServerError("go.micro.srv.monitor.Monitor.Services", err.Error())
+	}
+	rsp.Services = services
+	return nil
+}

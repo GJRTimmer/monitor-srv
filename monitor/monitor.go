@@ -12,6 +12,7 @@ import (
 type monitor struct {
 	sync.RWMutex
 	healthChecks map[string][]*proto.HealthCheck
+	services     map[string]*proto.Service
 }
 
 var (
@@ -24,6 +25,7 @@ var (
 func newMonitor() *monitor {
 	return &monitor{
 		healthChecks: make(map[string][]*proto.HealthCheck),
+		services:     make(map[string]*proto.Service),
 	}
 }
 
@@ -54,6 +56,8 @@ func (m *monitor) reap() {
 
 	t := time.Now().Unix()
 
+	services := make(map[string]*proto.Service)
+
 	for id, hc := range m.healthChecks {
 		var checks []*proto.HealthCheck
 		for _, check := range hc {
@@ -61,9 +65,19 @@ func (m *monitor) reap() {
 				continue
 			}
 			checks = append(checks, check)
+
+			// create new service list
+			// TODO: maybe hold onto it so we have history
+			if check.Service != nil && len(check.Service.Name) > 0 {
+				if len(check.Service.Nodes) > 0 {
+					services[check.Service.Nodes[0].Id] = check.Service
+				}
+			}
 		}
 		m.healthChecks[id] = checks
 	}
+
+	m.services = services
 }
 
 func (m *monitor) run() {
@@ -75,8 +89,8 @@ func (m *monitor) run() {
 }
 
 func (m *monitor) HealthChecks(id string, status proto.HealthCheck_Status, limit, offset int) ([]*proto.HealthCheck, error) {
-	m.Lock()
-	defer m.Unlock()
+	m.RLock()
+	defer m.RUnlock()
 
 	if len(id) == 0 {
 		var hcs []*proto.HealthCheck
@@ -93,9 +107,57 @@ func (m *monitor) HealthChecks(id string, status proto.HealthCheck_Status, limit
 	return filter(hcs, status, limit, offset), nil
 }
 
+func (m *monitor) Services(s string) ([]*proto.Service, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	toService := make(map[string][]*proto.Service)
+
+	for _, service := range m.services {
+		if len(s) > 0 && service.Name != s {
+			continue
+		}
+
+		cp := &proto.Service{}
+
+		*cp = *service
+
+		sr, ok := toService[cp.Name]
+		if !ok {
+			toService[cp.Name] = []*proto.Service{cp}
+			continue
+		}
+
+		// insert nodes into service version
+		var seen bool
+		for _, srv := range sr {
+			if srv.Version == cp.Version {
+				srv.Nodes = append(srv.Nodes, cp.Nodes...)
+				seen = true
+				break
+			}
+		}
+		if !seen {
+			toService[cp.Name] = append(toService[cp.Name], cp)
+		}
+	}
+
+	var services []*proto.Service
+	for _, service := range toService {
+		services = append(services, service...)
+	}
+	return services, nil
+}
+
 func (m *monitor) ProcessHealthCheck(ctx context.Context, hc *proto.HealthCheck) error {
 	m.Lock()
 	defer m.Unlock()
+
+	if hc.Service != nil && len(hc.Service.Name) > 0 {
+		if len(hc.Service.Nodes) > 0 {
+			m.services[hc.Service.Nodes[0].Id] = hc.Service
+		}
+	}
 
 	hcs, ok := m.healthChecks[hc.Id]
 	if !ok {
@@ -104,7 +166,7 @@ func (m *monitor) ProcessHealthCheck(ctx context.Context, hc *proto.HealthCheck)
 	}
 
 	for i, h := range hcs {
-		if h.Service.Id == hc.Service.Id {
+		if len(hc.Service.Nodes) > 0 && (h.Service.Nodes[0].Id == hc.Service.Nodes[0].Id) {
 			hcs[i] = hc
 			m.healthChecks[hc.Id] = hcs
 			return nil

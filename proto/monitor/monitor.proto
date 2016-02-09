@@ -3,6 +3,7 @@ syntax = "proto3";
 import "github.com/micro/go-platform/monitor/proto/monitor.proto";
 
 service Monitor {
+	rpc Services(ServicesRequest) returns (ServicesResponse) {}
 	rpc HealthChecks(HealthChecksRequest) returns (HealthChecksResponse) {}
 }
 
@@ -16,4 +17,12 @@ message HealthChecksRequest {
 
 message HealthChecksResponse {
 	repeated HealthCheck healthchecks = 1;
+}
+
+message ServicesRequest {
+	string service = 1;
+}
+
+message ServicesResponse {
+	repeated Service services = 1;
 }
