@@ -3,16 +3,31 @@ syntax = "proto3";
 import "github.com/micro/go-platform/monitor/proto/monitor.proto";
 
 service Monitor {
-	rpc Services(ServicesRequest) returns (ServicesResponse) {}
 	rpc HealthChecks(HealthChecksRequest) returns (HealthChecksResponse) {}
+	rpc Services(ServicesRequest) returns (ServicesResponse) {}
+	rpc Status(StatusRequest) returns (StatusResponse) {}
+}
+
+message Status {
+	enum Status {
+		UNKNOWN = 0;
+		OK = 1;
+		ERROR = 2;
+	}
+
+	Service service = 1;
+	Status status = 2;
+	string info = 3;
 }
 
 message HealthChecksRequest {
-	string id = 1;
-	HealthCheck.Status status = 2;
-	uint64 limit = 3;
-	uint64 offset = 4;
-
+	// optional: service name
+	string service = 1;
+	// optional: healthcheck id
+	string id = 2;
+	HealthCheck.Status status = 3;
+	uint64 limit = 4;
+	uint64 offset = 5;
 }
 
 message HealthChecksResponse {
@@ -25,4 +40,17 @@ message ServicesRequest {
 
 message ServicesResponse {
 	repeated Service services = 1;
+}
+
+message StatusRequest {
+	string service = 1;
+	string id = 2;
+	int64 limit = 3;
+	int64 offset = 4;
+	// will break out status by node
+	bool verbose = 5;
+}
+
+message StatusResponse {
+	repeated Status statuses = 1;
 }
