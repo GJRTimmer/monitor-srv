@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -21,7 +22,7 @@ var (
 	ErrNotFound      = errors.New("not found")
 	HealthCheckTopic = "micro.monitor.healthcheck"
 	StatusTopic      = "micro.monitor.status"
-	TickInterval     = time.Duration(time.Minute * 10)
+	TickInterval     = time.Duration(time.Minute)
 )
 
 func newMonitor() *monitor {
@@ -61,6 +62,7 @@ func (m *monitor) reap() {
 
 	services := make(map[string]*proto.Service)
 
+	// reap healthchecks
 	for id, hc := range m.healthChecks {
 		var checks []*proto.HealthCheck
 		for _, check := range hc {
@@ -70,6 +72,7 @@ func (m *monitor) reap() {
 			checks = append(checks, check)
 
 			// create new service list
+
 			// TODO: maybe hold onto it so we have history
 			if check.Service != nil && len(check.Service.Name) > 0 {
 				if len(check.Service.Nodes) > 0 {
@@ -78,6 +81,24 @@ func (m *monitor) reap() {
 			}
 		}
 		m.healthChecks[id] = checks
+	}
+
+	// reap status
+	for id, status := range m.status {
+		// expired
+		if t > (status.Timestamp+status.Interval) && t > (status.Timestamp+status.Ttl) {
+			delete(m.status, id)
+			continue
+		}
+
+		// past interval
+		if d := t - (status.Timestamp + status.Interval); d > 0 {
+			status.Status = proto.Status_UNKNOWN
+			status.Info = fmt.Sprintf("Last update %v ago", time.Duration(d)*time.Second)
+		}
+
+		// incase its not seen or something
+		services[status.Service.Nodes[0].Id] = status.Service
 	}
 
 	m.services = services
