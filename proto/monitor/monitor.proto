@@ -8,18 +8,6 @@ service Monitor {
 	rpc Status(StatusRequest) returns (StatusResponse) {}
 }
 
-message Status {
-	enum Status {
-		UNKNOWN = 0;
-		OK = 1;
-		ERROR = 2;
-	}
-
-	Service service = 1;
-	Status status = 2;
-	string info = 3;
-}
-
 message HealthChecksRequest {
 	// optional: service name
 	string service = 1;

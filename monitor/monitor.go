@@ -2,12 +2,10 @@ package monitor
 
 import (
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
 	proto "github.com/micro/go-platform/monitor/proto"
-	proto2 "github.com/micro/monitor-srv/proto/monitor"
 	"golang.org/x/net/context"
 )
 
@@ -15,13 +13,14 @@ type monitor struct {
 	sync.RWMutex
 	healthChecks map[string][]*proto.HealthCheck
 	services     map[string]*proto.Service
-	status       map[string]*proto2.Status
+	status       map[string]*proto.Status
 }
 
 var (
 	DefaultMonitor   = newMonitor()
 	ErrNotFound      = errors.New("not found")
 	HealthCheckTopic = "micro.monitor.healthcheck"
+	StatusTopic      = "micro.monitor.status"
 	TickInterval     = time.Duration(time.Minute * 10)
 )
 
@@ -29,7 +28,7 @@ func newMonitor() *monitor {
 	return &monitor{
 		healthChecks: make(map[string][]*proto.HealthCheck),
 		services:     make(map[string]*proto.Service),
-		status:       make(map[string]*proto2.Status),
+		status:       make(map[string]*proto.Status),
 	}
 }
 
@@ -171,14 +170,14 @@ func (m *monitor) Services(s string) ([]*proto.Service, error) {
 	return services, nil
 }
 
-func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) ([]*proto2.Status, error) {
+func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) ([]*proto.Status, error) {
 	m.RLock()
 	defer m.RUnlock()
 
 	if len(service) == 0 && len(id) == 0 {
 		// break out nodes
 		if verbose {
-			var statuses []*proto2.Status
+			var statuses []*proto.Status
 			for _, status := range m.status {
 				statuses = append(statuses, status)
 			}
@@ -186,13 +185,13 @@ func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) 
 		}
 
 		// return less verbose
-		mstat := make(map[string]*proto2.Status)
+		mstat := make(map[string]*proto.Status)
 
 		for _, status := range m.status {
 			// get the status
 			st, ok := mstat[status.Service.Name+status.Service.Version]
 			if !ok {
-				stat := &proto2.Status{
+				stat := &proto.Status{
 					Service: &proto.Service{},
 					Status:  status.Status,
 					Info:    status.Info,
@@ -204,15 +203,9 @@ func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) 
 
 			// append nodes
 			st.Service.Nodes = append(st.Service.Nodes, status.Service.Nodes...)
-
-			// set status
-			if status.Status > st.Status {
-				st.Status = status.Status
-				st.Info = fmt.Sprintf("Node %s is failing", status.Service.Nodes[0].Id)
-			}
 		}
 
-		var status []*proto2.Status
+		var status []*proto.Status
 		for _, stat := range mstat {
 			status = append(status, stat)
 		}
@@ -229,12 +222,12 @@ func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) 
 			if stat.Service.Name != service {
 				return nil, ErrNotFound
 			}
-			return []*proto2.Status{stat}, nil
+			return []*proto.Status{stat}, nil
 		}
 
 		// break out nodes
 		if verbose {
-			var statuses []*proto2.Status
+			var statuses []*proto.Status
 			for _, status := range m.status {
 				if status.Service.Name != service {
 					continue
@@ -245,7 +238,7 @@ func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) 
 		}
 
 		// less verbose
-		mstat := make(map[string]*proto2.Status)
+		mstat := make(map[string]*proto.Status)
 
 		for _, status := range m.status {
 			if status.Service.Name != service {
@@ -255,7 +248,7 @@ func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) 
 			// get the status
 			st, ok := mstat[status.Service.Name+status.Service.Version]
 			if !ok {
-				stat := &proto2.Status{
+				stat := &proto.Status{
 					Service: &proto.Service{},
 					Status:  status.Status,
 					Info:    status.Info,
@@ -267,15 +260,9 @@ func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) 
 
 			// append nodes
 			st.Service.Nodes = append(st.Service.Nodes, status.Service.Nodes...)
-
-			// set status
-			if status.Status > st.Status {
-				st.Status = status.Status
-				st.Info = fmt.Sprintf("Node %s is failing", status.Service.Nodes[0].Id)
-			}
 		}
 
-		var status []*proto2.Status
+		var status []*proto.Status
 		for _, stat := range mstat {
 			status = append(status, stat)
 		}
@@ -287,13 +274,14 @@ func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) 
 	if !ok {
 		return nil, ErrNotFound
 	}
-	return []*proto2.Status{stat}, nil
+	return []*proto.Status{stat}, nil
 }
 
 func (m *monitor) ProcessHealthCheck(ctx context.Context, hc *proto.HealthCheck) error {
 	m.Lock()
 	defer m.Unlock()
 
+	// Add to status or services if we don't have them
 	if hc.Service != nil && len(hc.Service.Name) > 0 {
 		if len(hc.Service.Nodes) > 0 {
 			// add to service list
@@ -301,9 +289,9 @@ func (m *monitor) ProcessHealthCheck(ctx context.Context, hc *proto.HealthCheck)
 
 			// add to status list
 			if _, ok := m.status[hc.Service.Nodes[0].Id]; !ok {
-				m.status[hc.Service.Nodes[0].Id] = &proto2.Status{
+				m.status[hc.Service.Nodes[0].Id] = &proto.Status{
 					Service: hc.Service,
-					Status:  proto2.Status_UNKNOWN,
+					Status:  proto.Status_UNKNOWN,
 				}
 			}
 		}
@@ -325,6 +313,18 @@ func (m *monitor) ProcessHealthCheck(ctx context.Context, hc *proto.HealthCheck)
 
 	hcs = append(hcs, hc)
 	m.healthChecks[hc.Id] = hcs
+	return nil
+}
+
+func (m *monitor) ProcessStatus(ctx context.Context, st *proto.Status) error {
+	m.Lock()
+	defer m.Unlock()
+
+	// add to service list
+	m.services[st.Service.Nodes[0].Id] = st.Service
+	// add status
+	m.status[st.Service.Nodes[0].Id] = st
+
 	return nil
 }
 

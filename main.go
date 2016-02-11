@@ -21,7 +21,17 @@ func main() {
 	service.Init()
 
 	service.Server().Subscribe(
-		service.Server().NewSubscriber(monitor.HealthCheckTopic, monitor.DefaultMonitor.ProcessHealthCheck),
+		service.Server().NewSubscriber(
+			monitor.HealthCheckTopic,
+			monitor.DefaultMonitor.ProcessHealthCheck,
+		),
+	)
+
+	service.Server().Subscribe(
+		service.Server().NewSubscriber(
+			monitor.StatusTopic,
+			monitor.DefaultMonitor.ProcessStatus,
+		),
 	)
 
 	proto.RegisterMonitorHandler(service.Server(), new(handler.Monitor))
