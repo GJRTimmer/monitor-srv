@@ -37,6 +37,22 @@ func (m *Monitor) Services(ctx context.Context, req *proto.ServicesRequest, rsp 
 	return nil
 }
 
+func (m *Monitor) Stats(ctx context.Context, req *proto.StatsRequest, rsp *proto.StatsResponse) error {
+	if req.Limit <= 0 {
+		req.Limit = 10
+	}
+	if req.Offset < 0 {
+		req.Offset = 0
+	}
+
+	stats, err := monitor.DefaultMonitor.Stats(req.Service, req.Id, int(req.Limit), int(req.Offset))
+	if err != nil {
+		return errors.InternalServerError("go.micro.srv.monitor.Monitor.Stats", err.Error())
+	}
+	rsp.Stats = stats
+	return nil
+}
+
 func (m *Monitor) Status(ctx context.Context, req *proto.StatusRequest, rsp *proto.StatusResponse) error {
 	if req.Limit <= 0 {
 		req.Limit = 10
@@ -45,7 +61,7 @@ func (m *Monitor) Status(ctx context.Context, req *proto.StatusRequest, rsp *pro
 		req.Offset = 0
 	}
 
-	statuses, err := monitor.DefaultMonitor.Status(req.Service, req.Id, req.Limit, req.Offset, req.Verbose)
+	statuses, err := monitor.DefaultMonitor.Status(req.Service, req.Id, int(req.Limit), int(req.Offset), req.Verbose)
 	if err != nil {
 		return errors.InternalServerError("go.micro.srv.monitor.Monitor.Status", err.Error())
 	}

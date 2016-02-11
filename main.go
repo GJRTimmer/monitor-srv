@@ -20,6 +20,7 @@ func main() {
 
 	service.Init()
 
+	// healthchecks
 	service.Server().Subscribe(
 		service.Server().NewSubscriber(
 			monitor.HealthCheckTopic,
@@ -27,10 +28,19 @@ func main() {
 		),
 	)
 
+	// status
 	service.Server().Subscribe(
 		service.Server().NewSubscriber(
 			monitor.StatusTopic,
 			monitor.DefaultMonitor.ProcessStatus,
+		),
+	)
+
+	// stats
+	service.Server().Subscribe(
+		service.Server().NewSubscriber(
+			monitor.StatsTopic,
+			monitor.DefaultMonitor.ProcessStats,
 		),
 	)
 

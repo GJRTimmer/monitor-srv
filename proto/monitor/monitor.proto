@@ -6,6 +6,7 @@ service Monitor {
 	rpc HealthChecks(HealthChecksRequest) returns (HealthChecksResponse) {}
 	rpc Services(ServicesRequest) returns (ServicesResponse) {}
 	rpc Status(StatusRequest) returns (StatusResponse) {}
+	rpc Stats(StatsRequest) returns (StatsResponse) {}
 }
 
 message HealthChecksRequest {
@@ -41,4 +42,15 @@ message StatusRequest {
 
 message StatusResponse {
 	repeated Status statuses = 1;
+}
+
+message StatsRequest {
+	string service = 1;
+	string id = 2;
+	int64 limit = 3;
+	int64 offset = 4;
+}
+
+message StatsResponse {
+	repeated Stats stats = 1;
 }

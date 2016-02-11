@@ -15,6 +15,7 @@ type monitor struct {
 	healthChecks map[string][]*proto.HealthCheck
 	services     map[string]*proto.Service
 	status       map[string]*proto.Status
+	stats        map[string]*proto.Stats
 }
 
 var (
@@ -22,6 +23,7 @@ var (
 	ErrNotFound      = errors.New("not found")
 	HealthCheckTopic = "micro.monitor.healthcheck"
 	StatusTopic      = "micro.monitor.status"
+	StatsTopic       = "micro.monitor.stats"
 	TickInterval     = time.Duration(time.Minute)
 )
 
@@ -30,19 +32,21 @@ func newMonitor() *monitor {
 		healthChecks: make(map[string][]*proto.HealthCheck),
 		services:     make(map[string]*proto.Service),
 		status:       make(map[string]*proto.Status),
+		stats:        make(map[string]*proto.Stats),
 	}
 }
 
 func filter(hc []*proto.HealthCheck, status proto.HealthCheck_Status, limit, offset int) []*proto.HealthCheck {
+	var hcs []*proto.HealthCheck
+
 	if len(hc) < offset {
-		return []*proto.HealthCheck{}
+		return hcs
 	}
 
 	if (limit + offset) > len(hc) {
 		limit = len(hc) - offset
 	}
 
-	var hcs []*proto.HealthCheck
 	for i := 0; i < limit; i++ {
 		if status == proto.HealthCheck_UNKNOWN {
 			hcs = append(hcs, hc[offset])
@@ -51,7 +55,46 @@ func filter(hc []*proto.HealthCheck, status proto.HealthCheck_Status, limit, off
 		}
 		offset++
 	}
+
 	return hcs
+}
+
+func filterStats(st []*proto.Stats, limit, offset int) []*proto.Stats {
+	var stats []*proto.Stats
+
+	if len(st) < offset {
+		return stats
+	}
+
+	if (limit + offset) > len(st) {
+		limit = len(st) - offset
+	}
+
+	for i := 0; i < limit; i++ {
+		stats = append(stats, st[offset])
+		offset++
+	}
+
+	return stats
+}
+
+func filterStatus(st []*proto.Status, limit, offset int) []*proto.Status {
+	var status []*proto.Status
+
+	if len(st) < offset {
+		return status
+	}
+
+	if (limit + offset) > len(st) {
+		limit = len(st) - offset
+	}
+
+	for i := 0; i < limit; i++ {
+		status = append(status, st[offset])
+		offset++
+	}
+
+	return status
 }
 
 func (m *monitor) reap() {
@@ -99,6 +142,18 @@ func (m *monitor) reap() {
 
 		// incase its not seen or something
 		services[status.Service.Nodes[0].Id] = status.Service
+	}
+
+	// reap stats
+	for id, stats := range m.stats {
+		// expired
+		if t > (stats.Timestamp+stats.Interval) && t > (stats.Timestamp+stats.Ttl) {
+			delete(m.stats, id)
+			continue
+		}
+
+		// incase its not seen or something
+		services[stats.Service.Nodes[0].Id] = stats.Service
 	}
 
 	m.services = services
@@ -191,61 +246,97 @@ func (m *monitor) Services(s string) ([]*proto.Service, error) {
 	return services, nil
 }
 
-func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) ([]*proto.Status, error) {
+func (m *monitor) Stats(service, id string, limit, offset int) ([]*proto.Stats, error) {
 	m.RLock()
 	defer m.RUnlock()
 
-	if len(service) == 0 && len(id) == 0 {
-		// break out nodes
-		if verbose {
-			var statuses []*proto.Status
-			for _, status := range m.status {
-				statuses = append(statuses, status)
-			}
-			return statuses, nil
+	var stats []*proto.Stats
+
+	// service node
+	if len(service) > 0 && len(id) > 0 {
+		stat, ok := m.stats[id]
+		if !ok || stat.Service.Name != service {
+			return nil, ErrNotFound
 		}
-
-		// return less verbose
-		mstat := make(map[string]*proto.Status)
-
-		for _, status := range m.status {
-			// get the status
-			st, ok := mstat[status.Service.Name+status.Service.Version]
-			if !ok {
-				stat := &proto.Status{
-					Service: &proto.Service{},
-					Status:  status.Status,
-					Info:    status.Info,
-				}
-				*stat.Service = *status.Service
-				mstat[status.Service.Name+status.Service.Version] = stat
-				continue
-			}
-
-			// append nodes
-			st.Service.Nodes = append(st.Service.Nodes, status.Service.Nodes...)
-		}
-
-		var status []*proto.Status
-		for _, stat := range mstat {
-			status = append(status, stat)
-		}
-		return status, nil
+		return []*proto.Stats{stat}, nil
 	}
 
-	if len(service) > 0 {
-		// return single node
-		if len(id) > 0 {
-			stat, ok := m.status[id]
-			if !ok {
-				return nil, ErrNotFound
-			}
+	// return service stats
+	if len(service) > 0 && len(id) == 0 {
+		for _, stat := range m.stats {
 			if stat.Service.Name != service {
-				return nil, ErrNotFound
+				continue
 			}
+			stats = append(stats, stat)
+		}
+		return filterStats(stats, limit, offset), nil
+	}
+
+	// single node
+	if len(service) == 0 && len(id) > 0 {
+		if stat, ok := m.stats[id]; ok {
+			return []*proto.Stats{stat}, nil
+		}
+		return nil, ErrNotFound
+	}
+
+	// all services
+	for _, stat := range m.stats {
+		stats = append(stats, stat)
+	}
+
+	return filterStats(stats, limit, offset), nil
+}
+func (m *monitor) Status(service, id string, limit, offset int, verbose bool) ([]*proto.Status, error) {
+	m.RLock()
+	defer m.RUnlock()
+
+	// return single sevice node
+	if len(service) > 0 && len(id) > 0 {
+		stat, ok := m.status[id]
+		if !ok || stat.Service.Name != service {
+			return nil, ErrNotFound
+		}
+		return []*proto.Status{stat}, nil
+	}
+
+	// return single node regardless of service
+	if len(service) == 0 && len(id) > 0 {
+		if stat, ok := m.status[id]; ok {
 			return []*proto.Status{stat}, nil
 		}
+		return nil, ErrNotFound
+	}
 
+	mstat := make(map[string]*proto.Status)
+
+	toSlice := func(statusMap map[string]*proto.Status) ([]*proto.Status, error) {
+		var status []*proto.Status
+		for _, stat := range statusMap {
+			status = append(status, stat)
+		}
+		return filterStatus(status, limit, offset), nil
+	}
+
+	updateMap := func(status *proto.Status) {
+		st, ok := mstat[status.Service.Name+status.Service.Version]
+		if !ok {
+			stat := &proto.Status{
+				Service: &proto.Service{},
+				Status:  status.Status,
+				Info:    status.Info,
+			}
+			*stat.Service = *status.Service
+			mstat[status.Service.Name+status.Service.Version] = stat
+			return
+		}
+
+		// append nodes
+		st.Service.Nodes = append(st.Service.Nodes, status.Service.Nodes...)
+	}
+
+	// return all service nodes
+	if len(service) > 0 {
 		// break out nodes
 		if verbose {
 			var statuses []*proto.Status
@@ -255,47 +346,33 @@ func (m *monitor) Status(service, id string, limit, offset int64, verbose bool) 
 				}
 				statuses = append(statuses, status)
 			}
-			return statuses, nil
+			return filterStatus(statuses, limit, offset), nil
 		}
 
 		// less verbose
-		mstat := make(map[string]*proto.Status)
-
 		for _, status := range m.status {
 			if status.Service.Name != service {
 				continue
 			}
-
-			// get the status
-			st, ok := mstat[status.Service.Name+status.Service.Version]
-			if !ok {
-				stat := &proto.Status{
-					Service: &proto.Service{},
-					Status:  status.Status,
-					Info:    status.Info,
-				}
-				*stat.Service = *status.Service
-				mstat[status.Service.Name+status.Service.Version] = stat
-				continue
-			}
-
-			// append nodes
-			st.Service.Nodes = append(st.Service.Nodes, status.Service.Nodes...)
+			updateMap(status)
 		}
 
-		var status []*proto.Status
-		for _, stat := range mstat {
-			status = append(status, stat)
-		}
-		return status, nil
-
+		return toSlice(mstat)
 	}
 
-	stat, ok := m.status[id]
-	if !ok {
-		return nil, ErrNotFound
+	// service and id is blank... return all services
+
+	// break out nodes
+	if verbose {
+		return toSlice(m.status)
 	}
-	return []*proto.Status{stat}, nil
+
+	// return less verbose
+	for _, status := range m.status {
+		updateMap(status)
+	}
+
+	return toSlice(mstat)
 }
 
 func (m *monitor) ProcessHealthCheck(ctx context.Context, hc *proto.HealthCheck) error {
@@ -345,6 +422,18 @@ func (m *monitor) ProcessStatus(ctx context.Context, st *proto.Status) error {
 	m.services[st.Service.Nodes[0].Id] = st.Service
 	// add status
 	m.status[st.Service.Nodes[0].Id] = st
+
+	return nil
+}
+
+func (m *monitor) ProcessStats(ctx context.Context, st *proto.Stats) error {
+	m.Lock()
+	defer m.Unlock()
+
+	// add to service list
+	m.services[st.Service.Nodes[0].Id] = st.Service
+	// add stats
+	m.stats[st.Service.Nodes[0].Id] = st
 
 	return nil
 }
