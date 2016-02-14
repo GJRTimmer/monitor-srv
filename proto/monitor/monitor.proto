@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package go.micro.srv.monitor.monitor;
+
 import "github.com/micro/go-platform/monitor/proto/monitor.proto";
 
 service Monitor {
