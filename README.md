@@ -9,6 +9,16 @@ The monitoring service subscribes to various events, aggregates and summarises.
 Who monitors the monitoring service? The monitoring service
 ```
 
+## How it works
+
+<p align="center">
+  <img src="https://github.com/micro/go-platform/blob/master/doc/monitor.png" />
+</p>
+
+Each service uses [go-platform/monitor](https://godoc.org/github.com/micro/go-platform/monitor) to create a client 
+side Monitor which aggregates Stats, Status and Healthchecks. A user can register healthchecks which are executed 
+on a scheduled interval and then published to the monitoring service.
+
 ## Getting started
 
 1. Install Consul
