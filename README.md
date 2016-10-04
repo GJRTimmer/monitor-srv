@@ -12,10 +12,10 @@ Who monitors the monitoring service? The monitoring service
 ## How it works
 
 <p align="center">
-  <img src="https://github.com/micro/go-platform/blob/master/doc/monitor.png" />
+  <img src="https://github.com/micro/go-os/blob/master/doc/monitor.png" />
 </p>
 
-Each service uses [go-platform/monitor](https://godoc.org/github.com/micro/go-platform/monitor) to create a client 
+Each service uses [go-os/monitor](https://godoc.org/github.com/micro/go-os/monitor) to create a client 
 side Monitor which aggregates Stats, Status and Healthchecks. A user can register healthchecks which are executed 
 on a scheduled interval and then published to the monitoring service.
 
@@ -101,5 +101,5 @@ micro query go.micro.srv.monitor Monitor.HealthChecks '{"id": "go.micro.healthch
 
 ### Sending HealthChecks
 
-Healthchecks are sent using [go-platform/monitor](https://github.com/micro/go-platform/blob/master/monitor/monitor.go). Example usage can be found in [go-platform/examples/monitor](https://github.com/micro/go-platform/blob/master/examples/monitor/monitor.go).
+Healthchecks are sent using [go-os/monitor](https://github.com/micro/go-os/blob/master/monitor/monitor.go). Example usage can be found in [go-os/examples/monitor](https://github.com/micro/go-os/blob/master/examples/monitor/monitor.go).
 

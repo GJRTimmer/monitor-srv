@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package go.micro.srv.monitor.monitor;
 
-import "github.com/micro/go-platform/monitor/proto/monitor.proto";
+import "github.com/micro/go-os/monitor/proto/monitor.proto";
 
 service Monitor {
 	rpc HealthChecks(HealthChecksRequest) returns (HealthChecksResponse) {}
@@ -16,13 +16,13 @@ message HealthChecksRequest {
 	string service = 1;
 	// optional: healthcheck id
 	string id = 2;
-	HealthCheck.Status status = 3;
+	go.micro.os.monitor.HealthCheck.Status status = 3;
 	uint64 limit = 4;
 	uint64 offset = 5;
 }
 
 message HealthChecksResponse {
-	repeated HealthCheck healthchecks = 1;
+	repeated go.micro.os.monitor.HealthCheck healthchecks = 1;
 }
 
 message ServicesRequest {
@@ -30,7 +30,7 @@ message ServicesRequest {
 }
 
 message ServicesResponse {
-	repeated Service services = 1;
+	repeated go.micro.os.monitor.Service services = 1;
 }
 
 message StatusRequest {
@@ -43,7 +43,7 @@ message StatusRequest {
 }
 
 message StatusResponse {
-	repeated Status statuses = 1;
+	repeated go.micro.os.monitor.Status statuses = 1;
 }
 
 message StatsRequest {
@@ -54,5 +54,5 @@ message StatsRequest {
 }
 
 message StatsResponse {
-	repeated Stats stats = 1;
+	repeated go.micro.os.monitor.Stats stats = 1;
 }

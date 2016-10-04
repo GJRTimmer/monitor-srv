@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	proto "github.com/micro/go-platform/monitor/proto"
+	proto "github.com/micro/go-os/monitor/proto"
 	"golang.org/x/net/context"
 )
 
